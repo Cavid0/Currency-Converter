@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="az">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Valyuta Konvertoru</title>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+    body {
+      margin: 0;
+      font-family: 'Segoe UI', sans-serif;
+      background-color: #f2f5f7;
+      transition: background-color 0.3s, color 0.3s;
+    }
+    body.dark {
+      background-color: #121212;
+      color: #eee;
+    }
+    header {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      padding: 20px 0;
+      background-color: #fff;
+      text-align: center;
+      font-size: 1.8rem;
+      font-weight: bold;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      z-index: 10;
+    }
+    body.dark header {
+      background-color: #1e1e1e;
+      color: #eee;
+    }
+    #toggleTheme {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      background-color: transparent;
+      border: 2px solid #ccc;
+      border-radius: 20px;
+      padding: 6px 12px;
+      cursor: pointer;
+      font-size: 1.2rem;
+      z-index: 20;
+    }
+    body.dark #toggleTheme {
+      border-color: #888;
+      color: #eee;
+    }
+    .container {
+      max-width: 400px;
+      margin: 120px auto;
+      background-color: white;
+      padding: 30px;
+      border-radius: 16px;
+      box-shadow: 0 0 20px rgba(0,0,0,0.1);
+      text-align: center;
+      transition: background-color 0.3s, color 0.3s;
+    }
+    body.dark .container {
+      background-color: #1e1e1e;
+      color: #eee;
+    }
+    .input-group {
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+      margin: 20px 0;
+    }
+    input, select {
+      padding: 10px;
+      font-size: 1rem;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+    }
+    body.dark input,
+    body.dark select {
+      background-color: #2a2a2a;
+      color: #eee;
+      border-color: #555;
+    }
+    .selectors {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+    .switch-btn {
+      background-color: #e0e0e0;
+      border: none;
+      font-size: 1.5rem;
+      padding: 5px 10px;
+      cursor: pointer;
+      border-radius: 8px;
+    }
+    body.dark .switch-btn {
+      background-color: #555;
+    }
+    button.convert {
+      background-color: #000;
+      color: white;
+      border: none;
+      padding: 12px;
+      border-radius: 8px;
+      font-size: 1rem;
+      cursor: pointer;
+      width: 100%;
+    }
+    body.dark button.convert {
+      background-color: #fff;
+      color: #000;
+    }
+    #result {
+      margin-top: 20px;
+      background-color: #f4fafa;
+      padding: 15px;
+      border-radius: 8px;
+      font-size: 1rem;
+    }
+    body.dark #result {
+      background-color: #2a2a2a;
+    }
+    #result strong {
+      font-size: 1.3rem;
+    }
+
+    /* Sağda sabitləşdirilmiş məzənnə cədvəli */
+    #allRatesTable {
+      position: fixed;
+      top: 100px;
+      right: 20px;
+      width: 280px;
+      max-height: 600px;
+      overflow-y: auto;
+      border-radius: 12px;
+      padding: 15px;
+      background-color: #fff;
+      box-shadow: 0 0 15px rgba(0,0,0,0.05);
+      transition: background-color 0.3s, color 0.3s;
+      z-index: 5;
+    }
+    body.dark #allRatesTable {
+      background-color: #1e1e1e;
+      color: #eee;
+    }
+    #allRatesTable table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    #allRatesTable th, #allRatesTable td {
+      padding: 6px;
+      text-align: left;
+      border-bottom: 1px solid #ddd;
+      font-size: 0.95rem;
+    }
+    body.dark #allRatesTable th, body.dark #allRatesTable td {
+      border-color: #444;
+    }
+    #allRatesTable th {
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+  <header>Valyuta Konvertoru</header>
+  <button id="toggleTheme">🌙</button>
+
+  <div class="container">
+    <div class="input-group">
+      <input type="number" id="amount" placeholder="Məbləğ" />
+      <div class="selectors">
+        <select id="fromCurrency"></select>
+        <button class="switch-btn" onclick="switchCurrencies()">⇆</button>
+        <select id="toCurrency"></select>
+      </div>
+    </div>
+    <button class="convert" onclick="convertCurrency()">Çevir</button>
+    <div id="result"></div>
+  </div>
+
+  <div id="allRatesTable">
+    <h3>Bütün məzənnələr (AZN)</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>Valyuta</th>
+          <th>Məbləğ (100 AZN)</th>
+        </tr>
+      </thead>
+      <tbody id="ratesBody"></tbody>
+    </table>
+  </div>
+
+  <script>
+    const fromSelect = document.getElementById('fromCurrency');
+    const toSelect = document.getElementById('toCurrency');
+    const amountInput = document.getElementById('amount');
+    const resultBox = document.getElementById('result');
+    const toggleBtn = document.getElementById('toggleTheme');
+    const ratesBody = document.getElementById('ratesBody');
+
+    const officialFiatCurrencies = ['usd','eur','azn','gbp','try','cad','aud','chf','jpy','sek','nzd','dkk','nok','rub','pln','czk','huf','inr','cny','sgd','mxn','ron','hrk','bgn','ils','zar','brl','thb','krw','myr','idr','vnd','hkd','uah','kwd','sar','aed','qar','egp'];
+
+    function populateSelects() {
+      officialFiatCurrencies.forEach(code => {
+        const option1 = new Option(code.toUpperCase(), code);
+        const option2 = new Option(code.toUpperCase(), code);
+        fromSelect.add(option1);
+        toSelect.add(option2);
+      });
+      fromSelect.value = 'azn';
+      toSelect.value = 'usd';
+    }
+
+    function switchCurrencies() {
+      const temp = fromSelect.value;
+      fromSelect.value = toSelect.value;
+      toSelect.value = temp;
+    }
+
+    async function convertCurrency() {
+      const amount = parseFloat(amountInput.value);
+      const from = fromSelect.value;
+      const to = toSelect.value;
+
+      if (!amount || amount <= 0) {
+        resultBox.innerHTML = 'Zəhmət olmasa düzgün məbləğ daxil edin';
+        return;
+      }
+
+      if (from === to) {
+        resultBox.innerHTML = `Nəticə: <strong>${amount.toFixed(2)} ${to.toUpperCase()}</strong><div>Eyni valyuta seçilib</div>`;
+        return;
+      }
+
+      try {
+        const res = await fetch(`https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies/${from}.json`);
+        const data = await res.json();
+        const rate = data[from][to];
+        if (!rate) {
+          resultBox.innerHTML = 'Məzənnə mövcud deyil';
+          return;
+        }
+        const converted = amount * rate;
+        resultBox.innerHTML = `
+          <div>Nəticə:</div>
+          <strong>${converted.toFixed(2)} ${to.toUpperCase()}</strong>
+          <div>1 ${from.toUpperCase()} = ${(converted / amount).toFixed(4)} ${to.toUpperCase()}</div>
+        `;
+      } catch {
+        resultBox.innerHTML = 'Xəta baş verdi';
+      }
+    }
+
+    async function convertAllToAZN() {
+      try {
+        const res = await fetch("https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies/azn.json");
+        const data = await res.json();
+        const aznRates = data['azn'];
+
+        ratesBody.innerHTML = '';
+        officialFiatCurrencies.forEach(code => {
+          if (code === 'azn') return;
+          const rate = aznRates[code];
+          if (rate) {
+            const amount = (100 * rate).toFixed(2);
+            const flagCode = getFlagCode(code);
+            const row = document.createElement('tr');
+            row.innerHTML = `
+              <td>
+                <img src="https://flagcdn.com/24x18/${flagCode}.png" alt="${code.toUpperCase()}" style="vertical-align: middle; margin-right: 6px;" />
+                ${code.toUpperCase()}
+              </td>
+              <td>${amount} ${code.toUpperCase()}</td>
+            `;
+            ratesBody.appendChild(row);
+          }
+        });
+      } catch {
+        ratesBody.innerHTML = '<tr><td colspan="2">Yükləmə xətası</td></tr>';
+      }
+    }
+
+    function getFlagCode(code) {
+      const overrides = {
+        eur: 'eu', gbp: 'gb', try: 'tr', usd: 'us', chf: 'ch', jpy: 'jp', cny: 'cn',
+        krw: 'kr', aed: 'ae', qar: 'qa', egp: 'eg', sar: 'sa', kwd: 'kw', inr: 'in',
+        myr: 'my', vnd: 'vn', hkd: 'hk', cad: 'ca', aud: 'au', pln: 'pl', czk: 'cz',
+        rub: 'ru', bgn: 'bg', hrk: 'hr', ron: 'ro', brl: 'br', mxn: 'mx', thb: 'th',
+        idr: 'id', huf: 'hu', dkk: 'dk', nok: 'no', sek: 'se', sgd: 'sg', nzd: 'nz',
+        zar: 'za', uah: 'ua', ils: 'il', azn: 'az'
+      };
+      return overrides[code] || code.slice(0, 2);
+    }
+
+    toggleBtn.addEventListener('click', () => {
+      const isDark = document.body.classList.toggle('dark');
+      toggleBtn.textContent = isDark ? '☀️' : '🌙';
+      localStorage.setItem('theme', isDark ? 'dark' : 'light');
+    });
+
+    document.addEventListener('DOMContentLoaded', () => {
+      const theme = localStorage.getItem('theme');
+      if (theme === 'dark') {
+        document.body.classList.add('dark');
+        toggleBtn.textContent = '☀️';
+      }
+      populateSelects();
+      convertAllToAZN();
+    });
+  </script>
+</body>
+</html>
